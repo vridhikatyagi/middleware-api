@@ -16,10 +16,16 @@ app.add_middleware(
         "https://app-03f3fx.example.com",
         "https://exam.sanand.workers.dev",
     ],
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["X-Request-ID"],
     allow_credentials=False,
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=[
+        "X-Request-ID",
+        "X-Client-Id",
+        "Content-Type",
+    ],
+    expose_headers=[
+        "X-Request-ID",
+    ],
 )
 
 # client_id -> timestamps
