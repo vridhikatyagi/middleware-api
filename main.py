@@ -6,7 +6,7 @@ import time
 
 EMAIL = "24f2006788@ds.study.iitm.ac.in"
 RATE_LIMIT = 14
-WINDOW = 10
+WINDOW = 10  # seconds
 
 app = FastAPI()
 
@@ -20,48 +20,62 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=False,
 )
-# client_id -> list of timestamps
+
+# Store timestamps per client
 rate_limit_store = {}
 
 
 @app.middleware("http")
-async def request_context_and_rate_limit(request: Request, call_next):
+async def middleware(request: Request, call_next):
+    # Allow CORS preflight requests
+    if request.method == "OPTIONS":
+        return await call_next(request)
 
-    client_id = request.headers.get("X-Client-Id", "anonymous")
-
-    now = time.time()
-
-    timestamps = rate_limit_store.get(client_id, [])
-
-    timestamps = [t for t in timestamps if now - t < WINDOW]
-
-    if len(timestamps) >= RATE_LIMIT:
-        return JSONResponse(
-            status_code=429,
-            content={"detail": "Rate limit exceeded"}
-        )
-
-    timestamps.append(now)
-
-    rate_limit_store[client_id] = timestamps
-
+    # Request ID
     request_id = request.headers.get("X-Request-ID")
-
     if not request_id:
         request_id = str(uuid.uuid4())
 
     request.state.request_id = request_id
 
+    # Rate limiting
+    client_id = request.headers.get("X-Client-Id", "anonymous")
+    now = time.time()
+
+    timestamps = rate_limit_store.get(client_id, [])
+    timestamps = [t for t in timestamps if now - t < WINDOW]
+
+    if len(timestamps) >= RATE_LIMIT:
+        response = JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded"},
+        )
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+    timestamps.append(now)
+    rate_limit_store[client_id] = timestamps
+
     response = await call_next(request)
 
+    # Always echo request ID
     response.headers["X-Request-ID"] = request_id
 
     return response
 
 
 @app.get("/ping")
-def ping(request: Request):
-    return {
-        "email": EMAIL,
-        "request_id": request.state.request_id
-    }
+async def ping(request: Request):
+    request_id = request.state.request_id
+
+    response = JSONResponse(
+        content={
+            "email": EMAIL,
+            "request_id": request_id,
+        }
+    )
+
+    # Echo request ID here as well
+    response.headers["X-Request-ID"] = request_id
+
+    return response
