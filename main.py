@@ -14,11 +14,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://app-03f3fx.example.com",
-        "http://exam.sanand.workers.dev",
+        "https://exam.sanand.workers.dev",
     ],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=False,
 )
 # client_id -> list of timestamps
 rate_limit_store = {}
